@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hainan FTP Vocabulary Challenge</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: linear-gradient(135deg, #0b3d5c 0%, #1a6b8a 45%, #0e9594 100%);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .app { width: 100%; max-width: 960px; }
+  .screen { display: none; }
+  .screen.active { display: block; animation: fadeIn 0.35s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .card {
+    background: #ffffff; border-radius: 22px; padding: 36px 30px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.28); max-width: 520px; margin: 0 auto;
+  }
+  .title { font-size: 26px; font-weight: 800; color: #0b3d5c; text-align: center; margin-bottom: 6px; }
+  .subtitle { text-align: center; color: #6b8a9a; font-size: 14px; margin-bottom: 26px; letter-spacing: 0.5px; }
+  .rules { list-style: none; background: #f0f7fa; border-radius: 14px; padding: 20px 24px; margin-bottom: 28px; }
+  .rules li { font-size: 15px; color: #2c5f72; padding: 7px 0; line-height: 1.5; }
+  .btn {
+    width: 100%; padding: 16px; background: linear-gradient(135deg, #0e9594, #1a6b8a);
+    color: #fff; border: none; border-radius: 14px; font-size: 18px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 1.5px; font-family: inherit;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(14,149,148,0.4); }
+  .btn:active { transform: translateY(0); }
+  .btn-restart-game {
+    width: 100%; margin-top: 12px; padding: 11px; background: #ffffff; color: #0e9594;
+    border: 2px solid #0e9594; border-radius: 12px; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; font-family: inherit; letter-spacing: 0.5px;
+  }
+  .btn-restart-game:hover { background: #f0f7fa; }
+
+  /* --- GAME --- */
+  .game-area { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  .board-wrap {
+    flex: 0 0 380px; background: #ffffff; border-radius: 22px; padding: 20px 16px 12px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  }
+  @media (max-width: 520px) { .board-wrap { flex: 0 0 100%; } }
+  .board-header { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .stat {
+    font-size: 15px; font-weight: 800; color: #0b3d5c; background: #f0f7fa;
+    border-radius: 10px; padding: 8px 16px; letter-spacing: 0.5px;
+  }
+  .stat.timer-warning { color: #c0392b; background: #fdeaea; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: 0.55; } }
+  .board-svg { width: 100%; height: auto; display: block; }
+  .node { fill: #ffffff; stroke: #c8dce8; stroke-width: 3; transition: all 0.25s; }
+  .node-text { font-size: 11px; font-weight: 700; fill: #9db6c4; user-select: none; }
+  .node.current .node { fill: #0e9594; stroke: #0e9594; }
+  .node.current .node-text { fill: #ffffff; }
+  .node.correct .node { fill: #27ae60; stroke: #27ae60; }
+  .node.correct .node-text { fill: #ffffff; }
+  .node.wrong .node { fill: #e74c3c; stroke: #e74c3c; }
+  .node.wrong .node-text { fill: #ffffff; }
+  .node-marker { font-size: 11px; font-weight: 800; fill: #0e9594; letter-spacing: 1px; user-select: none; }
+
+  /* --- QUESTION --- */
+  .question-wrap {
+    flex: 1 1 380px; min-width: 300px; background: #ffffff; border-radius: 22px;
+    padding: 24px 22px; box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  }
+  @media (max-width: 520px) { .question-wrap { flex: 0 0 100%; min-width: 0; } }
+  .q-counter {
+    text-align: center; font-size: 13px; font-weight: 700; color: #6b8a9a;
+    letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase;
+  }
+  .q-mode {
+    text-align: center; font-size: 11px; font-weight: 700; color: #0e9594;
+    letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px; opacity: 0.85;
+  }
+  .word-card {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: #f0f7fa; border-radius: 16px; padding: 24px 16px; margin-bottom: 20px;
+    cursor: pointer; min-height: 100px; transition: background 0.2s, transform 0.15s; user-select: none;
+  }
+  .word-card:hover { background: #e0eff5; }
+  .word-card:active { transform: scale(0.98); }
+  .word-text {
+    font-size: 24px; font-weight: 800; color: #0b3d5c; text-align: center;
+    letter-spacing: 0.3px; word-break: break-word;
+  }
+  .word-text.zh-prompt { font-size: 26px; letter-spacing: 1px; }
+  .speaker { font-size: 22px; opacity: 0.55; transition: opacity 0.2s; }
+  .word-card:hover .speaker { opacity: 1; }
+  .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 380px) { .options { grid-template-columns: 1fr; } }
+  .option {
+    padding: 16px 10px; background: #fff; border: 2px solid #d4e4ec; border-radius: 12px;
+    font-size: 15px; font-weight: 600; color: #2c5f72; cursor: pointer; transition: all 0.15s;
+    text-align: center; font-family: inherit; line-height: 1.35; min-height: 54px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .option:hover:not(.disabled) { border-color: #0e9594; background: #f0f7fa; transform: translateY(-1px); }
+  .option.wrong {
+    border-color: #e74c3c; background: #fdeaea; color: #c0392b;
+    text-decoration: line-through; opacity: 0.85;
+  }
+  .option.correct {
+    border-color: #27ae60; background: #e8f8f0; color: #1e8449; transform: scale(1.02);
+  }
+  .option.disabled { cursor: default; pointer-events: none; }
+  .feedback {
+    text-align: center; font-size: 15px; font-weight: 700; min-height: 22px;
+    margin-top: 14px; letter-spacing: 0.5px;
+  }
+  .feedback.ok { color: #27ae60; }
+  .feedback.no { color: #e74c3c; }
+
+  /* --- RESULT --- */
+  .result-title { text-align: center; font-size: 24px; font-weight: 800; color: #0b3d5c; margin-bottom: 20px; }
+  .stats {
+    display: flex; justify-content: center; gap: 22px; margin-bottom: 22px;
+    padding: 18px; background: #f0f7fa; border-radius: 16px;
+  }
+  .stat-box { text-align: center; }
+  .stat-val { font-size: 30px; font-weight: 800; color: #0e9594; }
+  .stat-lbl {
+    font-size: 12px; color: #6b8a9a; margin-top: 3px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .review { max-height: 220px; overflow-y: auto; margin-bottom: 22px; }
+  .review-title { font-size: 14px; font-weight: 700; color: #2c5f72; margin-bottom: 8px; }
+  .review-item {
+    display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 8px;
+    font-size: 13px; margin-bottom: 4px; background: #fdeaea; color: #c0392b;
+  }
+  .review-item .en { font-weight: 600; }
+  .review-item .zh { color: #666; }
+  .review-empty { text-align: center; color: #27ae60; font-size: 15px; padding: 14px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ================= START ================= -->
+  <div id="screen-start" class="screen active">
+    <div class="card">
+      <h1 class="title">Hainan FTP Vocabulary Challenge</h1>
+      <p class="subtitle">Listening Prep · 20 Words · 90 Seconds</p>
+      <ul class="rules">
+        <li>⏱️&nbsp; 90 seconds on the clock</li>
+        <li>✅&nbsp; You must answer correctly to move on</li>
+        <li>🔁&nbsp; Mix of English → Chinese &amp; Chinese → English</li>
+        <li>🔊&nbsp; 题目出现时自动朗读：英文题读英文，中文题读中文；点单词卡可重听</li>
+        <li>🗺️&nbsp; Travel from START to FINISH</li>
+      </ul>
+      <button id="btn-start" class="btn">Start Challenge</button>
+    </div>
+  </div>
+
+  <!-- ================= GAME ================= -->
+  <div id="screen-game" class="screen">
+    <div class="game-area">
+      <div class="board-wrap">
+        <div class="board-header">
+          <div class="stat" id="stat-timer">90s</div>
+          <div class="stat" id="stat-score">0</div>
+        </div>
+        <div id="board"></div>
+      </div>
+
+      <div class="question-wrap">
+        <div class="q-counter" id="q-counter">Question 1 of 20</div>
+        <div class="q-mode" id="q-mode">EN → ZH</div>
+        <div class="word-card" id="word-card">
+          <span class="word-text" id="word-text"></span>
+          <span class="speaker">🔊</span>
+        </div>
+        <div class="options" id="options"></div>
+        <div class="feedback" id="feedback"></div>
+        <button id="btn-restart-game" class="btn-restart-game">Restart Challenge</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= RESULT ================= -->
+  <div id="screen-result" class="screen">
+    <div class="card">
+      <div class="result-title" id="r-title">Challenge Complete!</div>
+      <div class="stats">
+        <div class="stat-box">
+          <div class="stat-val" id="r-correct">0</div>
+          <div class="stat-lbl">First-Try</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="r-total">20</div>
+          <div class="stat-lbl">Total</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="r-rate">0%</div>
+          <div class="stat-lbl">Accuracy</div>
+        </div>
+      </div>
+      <div class="review" id="review"></div>
+      <button id="btn-restart" class="btn">Play Again</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   1. VOCABULARY (28 items)
+   ============================================================ */
+const VOCAB = [
+  { en: "global influence", zh: "全球影响力" },
+  { en: "leading industry", zh: "主导产业" },
+  { en: "modern services", zh: "现代服务业" },
+  { en: "high-tech industry", zh: "高新技术产业" },
+  { en: "tropical agriculture", zh: "热带农业" },
+  { en: "stunning", zh: "令人惊叹的" },
+  { en: "crystal-clear", zh: "清澈透明的" },
+  { en: "pleasant climate", zh: "宜人的气候" },
+  { en: "domestic", zh: "国内的" },
+  { en: "preferential policy", zh: "优惠政策" },
+  { en: "logistics", zh: "物流" },
+  { en: "booming", zh: "蓬勃发展的" },
+  { en: "strategic", zh: "战略性的" },
+  { en: "digital economy", zh: "数字经济" },
+  { en: "commercial aerospace", zh: "商业航天" },
+  { en: "deep-sea technology", zh: "深海科技" },
+  { en: "skilled professional", zh: "专业技术人才" },
+  { en: "thriving", zh: "繁荣兴旺的" },
+  { en: "cultivation", zh: "种植;栽培" },
+  { en: "core", zh: "核心的" },
+  { en: "innovation", zh: "创新" },
+  { en: "breeding", zh: "育种;繁殖" },
+  { en: "hybrid rice", zh: "杂交水稻" },
+  { en: "insect-resistant", zh: "抗虫的" },
+  { en: "world-class", zh: "世界级的" },
+  { en: "seed industry", zh: "种业" },
+  { en: "forward-looking", zh: "前瞻性的" },
+  { en: "contribute to", zh: "为……做贡献" }
+];
+
+/* ============================================================
+   2. SPEECH —— 英文读英文，中文读中文
+   ============================================================ */
+let cachedVoiceEn = null;
+let cachedVoiceZh = null;
+
+function loadVoices() {
+  if (!('speechSynthesis' in window)) return;
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length === 0) return;   // 语音列表还没加载好，等 onvoiceschanged 再试
+
+  // 英文音色：优先 en-US，其次 en-GB，再次任意 en
+  cachedVoiceEn =
+    voices.find(v => /^en[-_]US/i.test(v.lang)) ||
+    voices.find(v => /^en[-_]GB/i.test(v.lang)) ||
+    voices.find(v => /^en/i.test(v.lang)) ||
+    null;
+
+  // 中文音色：优先 zh-CN / zh-Hans，其次任意 zh
+  cachedVoiceZh =
+    voices.find(v => /^zh[-_]CN/i.test(v.lang)) ||
+    voices.find(v => /^zh[-_]Hans/i.test(v.lang)) ||
+    voices.find(v => /^zh/i.test(v.lang)) ||
+    null;
+}
+
+if ('speechSynthesis' in window) {
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  // 保险：有些浏览器首次调用后 200ms 才有列表
+  setTimeout(loadVoices, 300);
+}
+
+/** 判断文本是中文还是英文 */
+function detectLang(text) {
+  return /[\u4e00-\u9fa5]/.test(text) ? 'zh' : 'en';
+}
+
+/**
+ * 朗读文本
+ * @param {string} text     要读的内容
+ * @param {string} [forceLang] 'en' | 'zh'，不传则自动判断
+ */
+function speak(text, forceLang) {
+  if (!('speechSynthesis' in window) || !text) return;
+  const lang = forceLang || detectLang(text);
+
+  try {
+    window.speechSynthesis.cancel();
+
+    const u = new SpeechSynthesisUtterance(text);
+    if (lang === 'zh') {
+      if (cachedVoiceZh) u.voice = cachedVoiceZh;
+      u.lang = 'zh-CN';
+      u.rate = 0.9;      // 中文稍慢一点更清楚
+    } else {
+      if (cachedVoiceEn) u.voice = cachedVoiceEn;
+      u.lang = 'en-US';
+      u.rate = 0.8;
+    }
+    u.pitch = 1;
+    u.volume = 1;
+
+    window.speechSynthesis.speak(u);
+  } catch (e) {
+    console.warn('Speech error:', e);
+  }
+}
+
+/* ============================================================
+   3. BOARD (SVG snake map: START → 20 nodes → FINISH)
+   ============================================================ */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const NODE_R = 14;
+const TOTAL_Q = 20;
+
+const NODES = (() => {
+  const cols = [45, 145, 245, 345];
+  const rows = [60, 130, 200, 270, 340];
+  const pos = [];
+  for (let r = 0; r < 5; r++) {
+    const xs = r % 2 === 0 ? cols : cols.slice().reverse();
+    for (let c = 0; c < 4; c++) pos.push({ x: xs[c], y: rows[r] });
+  }
+  return pos;
+})();
+
+function buildBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '-10 -10 410 400');
+  svg.setAttribute('class', 'board-svg');
+
+  const polyline = document.createElementNS(SVG_NS, 'polyline');
+  polyline.setAttribute('points', NODES.map(p => `${p.x},${p.y}`).join(' '));
+  polyline.setAttribute('fill', 'none');
+  polyline.setAttribute('stroke', '#c8dce8');
+  polyline.setAttribute('stroke-width', '4');
+  polyline.setAttribute('stroke-linecap', 'round');
+  polyline.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(polyline);
+
+  NODES.forEach((p, i) => {
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('class', 'node-group');
+    g.dataset.index = i;
+
+    const c = document.createElementNS(SVG_NS, 'circle');
+    c.setAttribute('cx', p.x);
+    c.setAttribute('cy', p.y);
+    c.setAttribute('r', NODE_R);
+    c.setAttribute('class', 'node');
+    g.appendChild(c);
+
+    const t = document.createElementNS(SVG_NS, 'text');
+    t.setAttribute('x', p.x);
+    t.setAttribute('y', p.y + 4);
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('class', 'node-text');
+    t.textContent = i + 1;
+    g.appendChild(t);
+
+    svg.appendChild(g);
+  });
+
+  const startLabel = document.createElementNS(SVG_NS, 'text');
+  startLabel.setAttribute('x', NODES[0].x);
+  startLabel.setAttribute('y', NODES[0].y - 24);
+  startLabel.setAttribute('text-anchor', 'middle');
+  startLabel.setAttribute('class', 'node-marker');
+  startLabel.textContent = 'START';
+  svg.appendChild(startLabel);
+
+  const endLabel = document.createElementNS(SVG_NS, 'text');
+  endLabel.setAttribute('x', NODES[19].x);
+  endLabel.setAttribute('y', NODES[19].y + 34);
+  endLabel.setAttribute('text-anchor', 'middle');
+  endLabel.setAttribute('class', 'node-marker');
+  endLabel.textContent = 'FINISH';
+  svg.appendChild(endLabel);
+
+  board.appendChild(svg);
+}
+
+function setNodeState(index, state) {
+  const g = document.querySelector(`.node-group[data-index="${index}"]`);
+  if (!g) return;
+  const c = g.querySelector('.node');
+  if (state === 'correct' && c.classList.contains('wrong')) return;
+  c.classList.remove('current', 'correct', 'wrong');
+  if (state) c.classList.add(state);
+}
+
+function clearCurrentNode() {
+  document.querySelectorAll('.node.current').forEach(n => n.classList.remove('current'));
+}
+
+function highlightCurrentNode(index) {
+  clearCurrentNode();
+  const g = document.querySelector(`.node-group[data-index="${index}"]`);
+  if (g) g.querySelector('.node').classList.add('current');
+}
+
+/* ============================================================
+   4. HELPERS
+   ============================================================ */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+/* ============================================================
+   5. STATE
+   ============================================================ */
+const state = {
+  running: false,
+  timeLeft: 90,
+  firstTryScore: 0,
+  questions: [],
+  currentQ: null,
+  currentIndex: 0,
+  qAnsweredCorrectly: false,
+  qHadWrongAttempt: false,
+  wrongWords: [],
+  timerId: null,
+  advancedId: null
+};
+
+function clearTimers() {
+  clearInterval(state.timerId);
+  clearTimeout(state.advancedId);
+  state.timerId = null;
+  state.advancedId = null;
+}
+
+/* ============================================================
+   6. GAME FLOW
+   ============================================================ */
+function startGame() {
+  clearTimers();
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  loadVoices();   // 用户点击后再确保语音列表可用
+
+  // 1) 抽题 + 随机方向
+  const pool = shuffle(VOCAB).slice(0, TOTAL_Q);
+  state.questions = pool.map(q => ({
+    ...q,
+    direction: Math.random() < 0.5 ? 'en2zh' : 'zh2en'
+  }));
+
+  // 2) 重置状态
+  state.running = true;
+  state.timeLeft = 90;
+  state.firstTryScore = 0;
+  state.currentIndex = 0;
+  state.qAnsweredCorrectly = false;
+  state.qHadWrongAttempt = false;
+  state.wrongWords = [];
+  state.currentQ = null;
+
+  // 3) 重置界面
+  showScreen('game');
+  buildBoard();
+  const timerEl = document.getElementById('stat-timer');
+  timerEl.textContent = '90s';
+  timerEl.classList.remove('timer-warning');
+  document.getElementById('stat-score').textContent = '0';
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = 'feedback';
+
+  // 4) 开始计时
+  state.timerId = setInterval(tick, 1000);
+
+  // 5) 第一题
+  showQuestion();
+}
+
+function tick() {
+  if (!state.running) return;
+  state.timeLeft--;
+  const el = document.getElementById('stat-timer');
+  el.textContent = state.timeLeft + 's';
+  if (state.timeLeft <= 10) el.classList.add('timer-warning');
+  if (state.timeLeft <= 0) endGame();
+}
+
+function showQuestion() {
+  const q = state.questions[state.currentIndex];
+  state.currentQ = q;
+  state.qAnsweredCorrectly = false;
+  state.qHadWrongAttempt = false;
+
+  const isEn2Zh = q.direction === 'en2zh';
+
+  // 题面
+  const promptEl = document.getElementById('word-text');
+  promptEl.textContent = isEn2Zh ? q.en : q.zh;
+  promptEl.classList.toggle('zh-prompt', isEn2Zh);
+
+  // 模式标签
+  document.getElementById('q-mode').textContent = isEn2Zh ? 'EN → ZH' : 'ZH → EN';
+
+  // 题号
+  document.getElementById('q-counter').textContent =
+    `Question ${state.currentIndex + 1} of ${TOTAL_Q}`;
+
+  // 选项（干扰项使用与答案相同的语言）
+  const answerKey = isEn2Zh ? 'zh' : 'en';
+  const correctAnswer = q[answerKey];
+  const others = VOCAB.filter(v => v[answerKey] !== correctAnswer);
+  const distractors = shuffle(others).slice(0, 3);
+  const opts = shuffle([q].concat(distractors));
+
+  const container = document.getElementById('options');
+  container.innerHTML = '';
+  opts.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.textContent = opt[answerKey];
+    btn.addEventListener('click', () => handleAnswer(btn, opt[answerKey] === correctAnswer));
+    container.appendChild(btn);
+  });
+
+  // 反馈区重置
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = 'feedback';
+
+  highlightCurrentNode(state.currentIndex);
+
+  /* ★ 核心修改：读题目，题目是什么语言就读什么语言，不读答案 ★ */
+  if (isEn2Zh) {
+    speak(q.en, 'en');   // 题面是英文 → 读英文
+  } else {
+    speak(q.zh, 'zh');   // 题面是中文 → 读中文
+  }
+}
+
+/** 点击单词卡重听题目（同样只读题面语言） */
+document.getElementById('word-card').addEventListener('click', () => {
+  if (!state.running || !state.currentQ) return;
+  const q = state.currentQ;
+  if (q.direction === 'en2zh') {
+    speak(q.en, 'en');
+  } else {
+    speak(q.zh, 'zh');
+  }
+});
+
+function handleAnswer(btn, correct) {
+  if (!state.running || state.qAnsweredCorrectly) return;
+  if (btn.classList.contains('disabled')) return;
+
+  if (correct) {
+    state.qAnsweredCorrectly = true;
+    document.querySelectorAll('.option').forEach(o => o.classList.add('disabled'));
+    btn.classList.remove('wrong');
+    btn.classList.add('correct');
+
+    if (!state.qHadWrongAttempt) {
+      state.firstTryScore++;
+      document.getElementById('stat-score').textContent = state.firstTryScore;
+      setNodeState(state.currentIndex, 'correct');
+    } else {
+      state.wrongWords.push(state.currentQ);
+      setNodeState(state.currentIndex, 'wrong');
+    }
+
+    const fb = document.getElementById('feedback');
+    fb.textContent = 'Correct!';
+    fb.className = 'feedback ok';
+
+    state.advancedId = setTimeout(nextQuestion, 750);
+  } else {
+    state.qHadWrongAttempt = true;
+    btn.classList.add('wrong', 'disabled');
+
+    const fb = document.getElementById('feedback');
+    fb.textContent = 'Try again.';
+    fb.className = 'feedback no';
+  }
+}
+
+function nextQuestion() {
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = 'feedback';
+
+  state.currentIndex++;
+  if (state.currentIndex >= TOTAL_Q) {
+    endGame();
+    return;
+  }
+  showQuestion();
+}
+
+function endGame() {
+  if (!state.running) return;
+  state.running = false;
+  clearTimers();
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  clearCurrentNode();
+
+  const rate = Math.round(state.firstTryScore / TOTAL_Q * 100);
+
+  document.getElementById('r-correct').textContent = state.firstTryScore;
+  document.getElementById('r-total').textContent = TOTAL_Q;
+  document.getElementById('r-rate').textContent = rate + '%';
+
+  const review = document.getElementById('review');
+  if (state.wrongWords.length === 0) {
+    review.innerHTML = '<div class="review-empty">🎉 Perfect! No mistakes.</div>';
+  } else {
+    const seen = new Set();
+    const unique = state.wrongWords.filter(w => {
+      if (seen.has(w.en)) return false;
+      seen.add(w.en);
+      return true;
+    });
+    review.innerHTML =
+      '<div class="review-title">📖 Words to Review</div>' +
+      unique.map(w =>
+        `<div class="review-item"><span class="en">${w.en}</span><span class="zh">${w.zh}</span></div>`
+      ).join('');
+  }
+
+  showScreen('result');
+}
+
+/* ============================================================
+   7. EVENTS
+   ============================================================ */
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-restart-game').addEventListener('click', startGame);
+document.getElementById('btn-restart').addEventListener('click', startGame);
+</script>
+</body>
+</html>
