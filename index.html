@@ -54,12 +54,12 @@
   .board-svg { width: 100%; height: auto; display: block; }
   .node { fill: #ffffff; stroke: #c8dce8; stroke-width: 3; transition: all 0.25s; }
   .node-text { font-size: 11px; font-weight: 700; fill: #9db6c4; user-select: none; }
-  .node.current .node { fill: #0e9594; stroke: #0e9594; }
-  .node.current .node-text { fill: #ffffff; }
-  .node.correct .node { fill: #27ae60; stroke: #27ae60; }
-  .node.correct .node-text { fill: #ffffff; }
-  .node.wrong .node { fill: #e74c3c; stroke: #e74c3c; }
-  .node.wrong .node-text { fill: #ffffff; }
+  .node-group.current .node { fill: #0e9594; stroke: #0e9594; }
+  .node-group.current .node-text { fill: #ffffff; }
+  .node-group.correct .node { fill: #27ae60; stroke: #27ae60; }
+  .node-group.correct .node-text { fill: #ffffff; }
+  .node-group.wrong .node { fill: #e74c3c; stroke: #e74c3c; }
+  .node-group.wrong .node-text { fill: #ffffff; }
   .node-marker { font-size: 11px; font-weight: 800; fill: #0e9594; letter-spacing: 1px; user-select: none; }
 
   /* --- QUESTION --- */
@@ -150,7 +150,7 @@
         <li>⏱️&nbsp; 90 seconds on the clock</li>
         <li>✅&nbsp; You must answer correctly to move on</li>
         <li>🔁&nbsp; Mix of English → Chinese &amp; Chinese → English</li>
-        <li>🔊&nbsp; 题目出现时自动朗读：英文题读英文，中文题读中文；点单词卡可重听</li>
+        <li>🔊&nbsp; 英文题自动朗读英文（可点单词卡重听）；中文题不朗读，答对后朗读正确答案的英文</li>
         <li>🗺️&nbsp; Travel from START to FINISH</li>
       </ul>
       <button id="btn-start" class="btn">Start Challenge</button>
@@ -392,19 +392,20 @@ function setNodeState(index, state) {
   const g = document.querySelector(`.node-group[data-index="${index}"]`);
   if (!g) return;
   const c = g.querySelector('.node');
-  if (state === 'correct' && c.classList.contains('wrong')) return;
+  if (state === 'correct' && g.classList.contains('wrong')) return;
+  g.classList.remove('current', 'correct', 'wrong');
   c.classList.remove('current', 'correct', 'wrong');
-  if (state) c.classList.add(state);
+  if (state) g.classList.add(state);
 }
 
 function clearCurrentNode() {
-  document.querySelectorAll('.node.current').forEach(n => n.classList.remove('current'));
+  document.querySelectorAll('.node-group.current').forEach(n => n.classList.remove('current'));
 }
 
 function highlightCurrentNode(index) {
   clearCurrentNode();
   const g = document.querySelector(`.node-group[data-index="${index}"]`);
-  if (g) g.querySelector('.node').classList.add('current');
+  if (g) g.classList.add('current');
 }
 
 /* ============================================================
@@ -542,22 +543,19 @@ function showQuestion() {
 
   highlightCurrentNode(state.currentIndex);
 
-  /* ★ 核心修改：读题目，题目是什么语言就读什么语言，不读答案 ★ */
+  /* ★ 朗读规则：英文题自动读英文；中文题不读题面，等答对后读英文答案 ★ */
   if (isEn2Zh) {
-    speak(q.en, 'en');   // 题面是英文 → 读英文
-  } else {
-    speak(q.zh, 'zh');   // 题面是中文 → 读中文
+    speak(q.en, 'en');   // 题面是英文 → 读英文（听力题）
   }
+  // zh2en：中文题面不朗读，学生看中文选英文
 }
 
-/** 点击单词卡重听题目（同样只读题面语言） */
+/** 点击单词卡重听题目（仅英文题重读英文；中文题无需朗读） */
 document.getElementById('word-card').addEventListener('click', () => {
   if (!state.running || !state.currentQ) return;
   const q = state.currentQ;
   if (q.direction === 'en2zh') {
     speak(q.en, 'en');
-  } else {
-    speak(q.zh, 'zh');
   }
 });
 
@@ -584,7 +582,13 @@ function handleAnswer(btn, correct) {
     fb.textContent = 'Correct!';
     fb.className = 'feedback ok';
 
-    state.advancedId = setTimeout(nextQuestion, 750);
+    // 中文题（选英文）：答对后朗读正确答案的英文，并多停留一会让学生听完
+    if (state.currentQ.direction === 'zh2en') {
+      speak(state.currentQ.en, 'en');
+      state.advancedId = setTimeout(nextQuestion, 2200);
+    } else {
+      state.advancedId = setTimeout(nextQuestion, 750);
+    }
   } else {
     state.qHadWrongAttempt = true;
     btn.classList.add('wrong', 'disabled');
