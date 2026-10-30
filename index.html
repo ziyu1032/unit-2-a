@@ -243,8 +243,40 @@ const VOCAB = [
 ];
 
 /* ============================================================
-   2. SPEECH —— 英文读英文，中文读中文
+   2. SPEECH —— 英文用有道真人美音；TTS 仅作断网兜底
    ============================================================ */
+const audioCache = {};
+function audioUrl(word){ return "https://dict.youdao.com/dictvoice?type=2&audio=" + encodeURIComponent(word); }
+
+/** 预加载单词真人发音 */
+function preloadWordAudio(words){
+  words.forEach(w=>{
+    if(audioCache[w]) return;
+    const a = new Audio(audioUrl(w));
+    a.preload = "auto";
+    audioCache[w] = a;
+  });
+}
+
+/** 播放英文单词真人美音；网络失败时回退浏览器 TTS */
+function speakEn(word){
+  if(!word) return;
+  try{
+    if(!audioCache[word]){
+      const a = new Audio(audioUrl(word));
+      a.preload = "auto";
+      audioCache[word] = a;
+    }
+    const a = audioCache[word];
+    a.pause();
+    try{ a.currentTime = 0; }catch(e){}
+    const p = a.play();
+    if(p && p.catch) p.catch(()=>{ speakTTS(word, 'en'); });
+  }catch(e){
+    speakTTS(word, 'en');
+  }
+}
+
 let cachedVoiceEn = null;
 let cachedVoiceZh = null;
 
@@ -281,16 +313,17 @@ function detectLang(text) {
 }
 
 /**
- * 朗读文本
+ * TTS 兜底朗读（仅当真人音频加载失败时使用）
  * @param {string} text     要读的内容
  * @param {string} [forceLang] 'en' | 'zh'，不传则自动判断
  */
-function speak(text, forceLang) {
+function speakTTS(text, forceLang) {
   if (!('speechSynthesis' in window) || !text) return;
   const lang = forceLang || detectLang(text);
 
   try {
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    synth.cancel();
 
     const u = new SpeechSynthesisUtterance(text);
     if (lang === 'zh') {
@@ -305,7 +338,8 @@ function speak(text, forceLang) {
     u.pitch = 1;
     u.volume = 1;
 
-    window.speechSynthesis.speak(u);
+    /* Chrome 的已知 bug：cancel() 后立即 speak() 会吞掉发音，延迟一拍 */
+    setTimeout(()=> synth.speak(u), 60);
   } catch (e) {
     console.warn('Speech error:', e);
   }
@@ -463,6 +497,7 @@ function startGame() {
     ...q,
     direction: Math.random() < 0.5 ? 'en2zh' : 'zh2en'
   }));
+  preloadWordAudio(state.questions.map(q => q.en));   // 预加载真人发音
 
   // 2) 重置状态
   state.running = true;
@@ -543,9 +578,9 @@ function showQuestion() {
 
   highlightCurrentNode(state.currentIndex);
 
-  /* ★ 朗读规则：英文题自动读英文；中文题不读题面，等答对后读英文答案 ★ */
+  /* ★ 朗读规则：英文题自动读英文（真人美音）；中文题不读题面，等答对后读英文答案 ★ */
   if (isEn2Zh) {
-    speak(q.en, 'en');   // 题面是英文 → 读英文（听力题）
+    speakEn(q.en);   // 题面是英文 → 读英文（听力题）
   }
   // zh2en：中文题面不朗读，学生看中文选英文
 }
@@ -555,7 +590,7 @@ document.getElementById('word-card').addEventListener('click', () => {
   if (!state.running || !state.currentQ) return;
   const q = state.currentQ;
   if (q.direction === 'en2zh') {
-    speak(q.en, 'en');
+    speakEn(q.en);
   }
 });
 
@@ -584,7 +619,7 @@ function handleAnswer(btn, correct) {
 
     // 中文题（选英文）：答对后朗读正确答案的英文，并多停留一会让学生听完
     if (state.currentQ.direction === 'zh2en') {
-      speak(state.currentQ.en, 'en');
+      speakEn(state.currentQ.en);
       state.advancedId = setTimeout(nextQuestion, 2200);
     } else {
       state.advancedId = setTimeout(nextQuestion, 750);
